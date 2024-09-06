@@ -1,0 +1,153 @@
+---
+title: "Instagram Engagement Analysis"
+author: "Neil Mahajan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Introduction
+
+This report provides an analysis of Instagram engagement data, focusing on how different factors such as the time of day, the use of hashtags, and the type of post (video or multiple images) influence user interactions, particularly in terms of likes.
+
+The dataset used for this analysis was sourced from [Kaggle](https://www.kaggle.com/datasets/propriyam/instagram-data).
+
+## Step 1: Load Libraries and Dataset
+
+```{r setup, include=FALSE}
+# Load the necessary libraries
+library(tidyverse)
+library(lubridate)
+library(stringr)
+```
+
+```{r load-data, echo=TRUE}
+# Load the dataset
+instagram_data <- read_csv("instagram_data.csv")
+
+# Remove the last row without data
+instagram_data <- instagram_data %>% filter(row_number() != 11663)
+```
+
+## Step 2: Data Overview
+
+We begin by inspecting and summarizing the dataset
+
+```{r data-overview}
+# Inspect the dataset
+glimpse(instagram_data)
+summary(instagram_data)
+```
+
+## Step 3: Date-Time Conversion
+
+We convert the created_at column from Unix timestamp to a readable Date-Time format and extract additional time-based features for further analysis.
+
+```{r date-time-conversion}
+# Convert created_at and extract hour and day of the week
+instagram_data <- instagram_data %>%
+  mutate(created_at = as.POSIXct(created_at, origin = "1970-01-01", tz = "UTC"),
+         hour = hour(created_at),
+         day_of_week = wday(created_at, label = TRUE))
+```
+
+## Step 4: Extract Hashtags
+
+Here, we extract hashtags from the captions and count the number of hashtags per post.
+
+```{r extract-hashtags}
+# Extract hashtags
+instagram_data <- instagram_data %>%
+  mutate(hashtags = str_extract_all(caption, "#\\S+"),
+         num_hashtags = lengths(str_extract_all(caption, "#\\S+")))
+```
+
+## Step 5: Exploratroy Data Analysis (EDA)
+
+### Engagement by Time of Day
+
+We examine how engagement varies by the hour of the day.
+
+```{r engagement-time-of-day, echo=TRUE}
+# Plot average likes and comments by hour of the day
+instagram_data %>%
+  group_by(hour) %>%
+  summarise(avg_likes = mean(likes), avg_comments = mean(comments)) %>%
+  ggplot(aes(x = hour)) +
+  geom_line(aes(y = avg_likes), color = "blue", linewidth = 1) +
+  geom_line(aes(y = avg_comments), color = "red", linewidth = 1) +
+  labs(title = "Average Likes and Comments by Time of Day",
+       x = "Hour of Day", y = "Average Engagement")
+```
+
+#### Discussion:
+
+From this plot, we can see that the engagement tends to peak around certain hours, possibly when users are most active. Specifically, we see that engagement in terms of the average number of likes peaks for posts that are created at around 5 AM and at around 12 PM. 
+
+This information is critical for determining the best times to post content to maximize likes and comments. From this data, we can conclude that a content creator may want to post at around 5 AM or around 12 PM to receive the maximum engagement.
+
+### Engagement by Hashtags
+
+We analyze the most common hashtags and their average engagement.
+
+```{r engagement-hashtags echo TRUE}
+# Analyze hashtags and engagement
+instagram_data %>%
+  unnest(hashtags) %>%
+  group_by(hashtags) %>%
+  summarise(avg_likes = mean(likes), avg_comments = mean(comments)) %>%
+  arrange(desc(avg_likes)) %>%
+  head(10)
+```
+
+#### Discussion:
+
+From this data, we can which hashtags that appear in the captions of posts contained in the dataset recieve the most likes. Posts with hashtags such as #LoveOn, #luxresorts, #afrohair, #americanidol, and #lionelrichie tend to receive the most likes.
+
+Content creators may want to use these specific hashtags in their captions to potentially increase engagement on their post. However, it is important to note that because there are so many hashtags and this dataset only contains around 11,000 posts, that there might be many other hashtags that receive even more engagement than the ones shown by this chart. Additionally, hashtags could potentially increase engagement more at a specific date when that hashtag is trending. So this information may not yield the best engagement for content creators after this data was extracted which was around 6 months ago.
+
+### Engagement by Number of Hashtags
+
+We examine how the number of hashtags affects engagement.
+
+```{r engagement-num-hashtags, echo=TRUE}
+# Analyze engagement by number of hashtags
+instagram_data %>%
+  group_by(num_hashtags) %>%
+  summarise(avg_likes = mean(likes), avg_comments = mean(comments)) %>%
+  ggplot(aes(x = num_hashtags)) +
+  geom_line(aes(y = avg_likes), color = "blue", linewidth = 1) +
+  geom_line(aes(y = avg_comments), color = "red", linewidth = 1) +
+  labs(title = "Average Likes and Comments by Number of Hashtags",
+       x = "Number of Hashtags", y = "Average Engagement")
+```
+
+#### Discussion:
+
+When analyzing this chart, we find an interesting and surprising correlation between the number of hashtags in the caption of a post and the number of likes that post receives.
+
+I initially expected a directly correlated positive linear relationship between the number of hashtags in the caption and the number of likes. However we see that the number of likes actually peaks at around 8 to 10 hashtags and after that point when increasing the number of hashtags in the caption, the number of likes actually decreases. Therefore, we can conclude that a content creator that wants to maximize the number of likes on his post, should only use 8 to 10 captions and using any more will lead to decreased engagement.
+
+### Engagement by Post Type
+
+We compare the engagement levels between video posts and multiple image posts.
+
+```{r engagement-post-type, echo=TRUE}
+# Analyze engagement by post type (video and multiple images)
+instagram_data %>%
+  group_by(is_video, multiple_images) %>%
+  summarise(avg_likes = mean(likes), avg_comments = mean(comments)) %>%
+  ggplot(aes(x = is_video, y = avg_likes, fill = multiple_images)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Likes by Post Type", x = "Is Video", 
+       y = "Average Likes")
+```
+
+#### Discussion:
+
+Finally, we looked at how posting different types of posts on Instagram affects the engagement on that post to see which post type is ideal for maximizing engagement.
+
+Looking at the bar chart, we can see that posting a single picture yields the worst average likes on that post. Posting a video yields to slightly better results than posting a single picture, but not by a significant margin. But, posting multiple pictures seems to yield around double the average amount of likes on a post than posting a single picture or a video. Therefore, a content creator trying to maximize engagement should post multiple pictures to increase his chances of receiving more engagement.
+
+## Conclusion
+
+In this analysis, we observed how different factors influence Instagram engagement. We explored the effects of time of day, hashtags, and post types on likes. The findings indicate that engagement patterns vary significantly depending on the hour of posting, the use of hashtags, and whether the content is a video or a multi-image post. A content creator who wants to increase the chances of maximizing his engagement may want to make a post type with multiple pictures, include 8 to 10 hashtags in the caption, and post at around 5 AM or 12 PM.
